@@ -1,13 +1,46 @@
 use clap::{Arg, Command};
 
-use jwt_cli::{AppState, Error};
+use jwt_cli::AppState;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
     let m = Command::new("JWT Parser")
         .version(VERSION)
         .about(DESCRIPTION)
+        .arg(
+            Arg::with_name("raw")
+                .long("raw")
+                .short('r')
+                .help("Just dump the payload.  No validation is performed.")
+                .required(false)
+                .conflicts_with_all(&["decode", "encode", "header_only"])
+        )
+        .arg(
+            Arg::with_name("decode")
+                .long("decode")
+                .short('d')
+                .help("Decode with validation is performed. This is the default mode.")
+                .required(false)
+                .conflicts_with_all(&["raw", "encode", "header_only"])
+        )
+        .arg(
+            Arg::with_name("encode")
+                .long("encode")
+                .short('e')
+                .help("Encode. A key is required for this.")
+                .required(false)
+                .conflicts_with_all(&["raw", "decode", "header_only"])
+        )
+        .arg(
+            Arg::with_name("header_only")
+                .long("header-only")
+                .help("Just dump the header")
+                .required(false)
+                .conflicts_with_all(&["raw", "encode", "decode"])
+        )
+
+
         .arg(
             Arg::with_name("key")
                 .long("key")
@@ -86,7 +119,7 @@ fn main() -> Result<(), Error> {
     let mut app_state = AppState::try_from(&m)?;
     let in_buff = app_state.read_stream()?;
     let token = std::str::from_utf8(&in_buff).expect("UTF failed!!");
-    let result = jwt_cli::verify_jwt(token, &app_state).map_err(|_| Error::VerifyFailed)?;
+    let result = jwt_cli::verify_jwt(token, &app_state)?;
     app_state.write_stream(result.as_bytes())?;
 
     Ok(())

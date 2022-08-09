@@ -22,4 +22,7 @@ pub enum Error {
 
     #[error("Bad password arg")]
     BadPasswordArg,
+
+    #[error("This feature is not yet supported: {0}")]
+    NotSupported(String),
 }

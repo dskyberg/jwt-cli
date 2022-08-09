@@ -50,7 +50,42 @@ fn verify_x5c(
     Err(errors::Error::VerifyFailed.into())
 }
 
+pub fn decode_raw_jwt(token: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return Err(errors::Error::VerifyFailed.into());
+    }
+
+    let payload = parts[1];
+    let claims = base64::decode_config(payload, base64::URL_SAFE_NO_PAD)?;
+    let json = std::str::from_utf8(&claims)?;
+    Ok(json.to_owned())
+}
+
+pub fn decode_header_only(token: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let header = decode_header(token)?;
+    Ok(serde_json::to_string(&header)?)
+}
+
+pub fn encode_jwt(
+    _token: &str,
+    _app_state: &AppState,
+) -> Result<String, Box<dyn std::error::Error>> {
+    Err(errors::Error::NotSupported("encode".to_string()).into())
+}
+
 pub fn verify_jwt(token: &str, app_state: &AppState) -> Result<String, Box<dyn std::error::Error>> {
+    // get the mode
+    if app_state.mode == VerifyMode::DecodeRaw {
+        return decode_raw_jwt(token);
+    }
+    if app_state.mode == VerifyMode::Encode {
+        return encode_jwt(token, app_state);
+    }
+    if app_state.mode == VerifyMode::HeaderOnly {
+        return decode_header_only(token);
+    }
+
     let header = decode_header(token)?;
     let validation = build_validation(&header, app_state)?;
 

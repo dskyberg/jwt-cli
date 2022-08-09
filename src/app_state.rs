@@ -6,8 +6,18 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::Error;
 
+#[derive(Debug, PartialEq)]
+pub enum VerifyMode {
+    Decode,
+    DecodeRaw,
+    Encode,
+    HeaderOnly,
+}
+
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct AppState {
+    #[zeroize(skip)]
+    pub mode: VerifyMode,
     #[zeroize(skip)]
     pub in_stream: Box<dyn Read>,
     #[zeroize(skip)]
@@ -41,6 +51,7 @@ impl AppState {
     /// Create an AppState with default settings
     pub fn new() -> Self {
         Self {
+            mode: VerifyMode::Decode,
             in_stream: Box::new(std::io::stdin()),
             out_stream: Box::new(std::io::stdout()),
             validation_claims: HashSet::new(),
@@ -80,6 +91,8 @@ impl TryFrom<&ArgMatches> for AppState {
 
         app_state.key = process_key(matches.value_of("key"))?;
 
+        app_state.mode = get_mode(matches);
+
         if let Some(vals) = matches.values_of("validate") {
             app_state.validation_claims = vals.map(|s| s.to_owned()).collect::<HashSet<String>>();
         }
@@ -112,6 +125,18 @@ impl TryFrom<&ArgMatches> for AppState {
     }
 }
 
+fn get_mode(matches: &ArgMatches) -> VerifyMode {
+    if matches.contains_id("raw") {
+        return VerifyMode::DecodeRaw;
+    }
+    if matches.contains_id("encode") {
+        return VerifyMode::Encode;
+    }
+    if matches.contains_id("header_only") {
+        return VerifyMode::HeaderOnly;
+    }
+    VerifyMode::Decode
+}
 /// Read a password from a local file
 ///
 /// If the arg to `process_password` is `FILE:<filename>` this method is called
